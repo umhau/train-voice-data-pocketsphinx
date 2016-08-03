@@ -15,7 +15,7 @@ import sys
 chunk = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 44100
+RATE = 16000
 
 # create interrupt thread
 def input_thread(L):
