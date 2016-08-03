@@ -159,15 +159,31 @@ def get_cmu_arctic_training_data_file():
 datalist = get_cmu_arctic_training_data_file()
 # print("--------------------------------------------------------------------------------")
 
-
+def how_many_recordings():
+    print("%d possible recordings." % len(datalist))
+    need = True # need a sensible number.
+    while need:
+        num_recs = raw_input("Number of recordings to make (total): ")
+        try:
+            if int(num_recs) > len(datalist):
+                print("Please enter a smaller number.")
+            elif int(num_recs) <= len(datalist):
+                need = False
+            
+        except ValueError:
+            print("Please enter an integer.")
+    return int(num_recs)
+    
+num_recs = how_many_recordings() 
+    
 # display line, record until interrupt
-def record_new_cmu_training_data(quant):
+def record_new_cmu_training_data(quant, num_recs):
     #clear_screen()
     print("\nRemember: read carefully.  There is no function in this script for redoing a file (TODO).  Press 1 to start when you are in a quiet area.  If you are not ready, or to leave at any time during recording, press [ctrl-c] to exit the script.  The script will pick up where it left off.\n")
     ready = raw_input()
     
     try:
-        for i in datalist[quant:]: # iterate through data, starting after the last recording detected.
+        for i in datalist[quant:num_recs]: # iterate through data, starting after the last recording detected.
         #for i in datalist:
             clear_screen()
             print("Recording no. %s of %04d\n" % (i[0][0],len(datalist)-quant))
@@ -181,7 +197,10 @@ def record_new_cmu_training_data(quant):
 #            clear_screen()
     except KeyboardInterrupt:
         sys.exit()
-record_new_cmu_training_data(quant)
+        
+record_new_cmu_training_data(quant, num_recs)
+
+print("Done.")
 
 
 
