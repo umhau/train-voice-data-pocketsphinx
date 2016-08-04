@@ -11,6 +11,7 @@ import thread, time
 import pyaudio
 import wave
 import sys
+import string
 
 chunk = 1024
 FORMAT = pyaudio.paInt16
@@ -78,9 +79,16 @@ else:
 
 import os
 import errno
+wrong = True
+while wrong:
+    training_data_name = raw_input("What do you want to call this dataset?\n (use letters, numbers, underscores and dashes only) ")
+    if ' ' in training_data_name:
+        wrong = True
+    else:
+        wrong = False
 
 def make_sure_path_exists(path):
-    print("Looking for './bespoke_training_data' folder...")
+    print("Looking for "+ training_data_name + " folder...")
     nf = []
     try:
         os.makedirs(path)
@@ -92,7 +100,7 @@ def make_sure_path_exists(path):
     
     return nf
 
-nf = make_sure_path_exists("./bespoke_training_data")
+nf = make_sure_path_exists("./" + training_data_name)
 
 # if exists, see how far the recording process went
 
@@ -101,7 +109,7 @@ def how_much_training_data_exists_already(nf):
     import glob
     import re
     
-    path = "./bespoke_training_data"
+    path = "./" + training_data_name
     
     if not nf: # don't need to look stupid
         print("Checking for previous recordings...")
@@ -111,8 +119,8 @@ def how_much_training_data_exists_already(nf):
     
     for i in file_list:
         # print i # this would print the names of all .wav files (unneccessary)
-        numbers_list.append(re.findall(".*arctic_(\d{4})\.wav", i))
-    try:   
+        numbers_list.append(re.findall(".*"+training_data_name+"_(\d{4})\.wav", i))
+    try:    
         number = int(max(numbers_list)[0])
     except ValueError:
         number = 0
@@ -175,26 +183,47 @@ def how_many_recordings():
     return int(num_recs)
     
 num_recs = how_many_recordings() 
+
+def append_to_text_file(formatted_text, filename):
+    hs = open(filename,"a")
+    hs.write(formatted_text)
+    hs.close() 
     
 # display line, record until interrupt
 def record_new_cmu_training_data(quant, num_recs):
     #clear_screen()
-    print("\nRemember: read carefully.  There is no function in this script for redoing a file (TODO).  Press 1 to start when you are in a quiet area.  If you are not ready, or to leave at any time during recording, press [ctrl-c] to exit the script.  The script will pick up where it left off.\n")
+    print("\nRemember: read carefully.  There is no function in this script for redoing a file (TODO).  Press [enter] to start when you are in a quiet area.  If you are not ready, or to leave at any time during recording, press [ctrl-c] to exit the script.  The script will pick up where it left off.\n")
     ready = raw_input()
     
     try:
         for i in datalist[quant:num_recs]: # iterate through data, starting after the last recording detected.
-        #for i in datalist:
+        
+        # record audio
             clear_screen()
-            print("Recording no. %s of %04d\n" % (i[0][0],len(datalist)-quant))
+            print("Recording no. %s of %04d\n" % (i[0][0], num_recs))
             print("Read the following text out loud after pressing [enter]:")
             print("--------------------------------------------------------------------------------\n")
             print(i[0][1] + "\n")
             print("--------------------------------------------------------------------------------\n")
             raw_input("Press [enter] when ready.\n")
-            # recording file should look like this: arctic_0001.wav
-            do_recording("./bespoke_training_data/arctic_" + str(i[0][0]) + ".wav")
-#            clear_screen()
+            
+            # recording file should look like this (e.g.): ./bespoke_training_data/arctic_0001.wav
+            audio_file_name = "./" + training_data_name + "/" + training_data_name+ "_" + str(i[0][0]) + ".wav"
+                              
+            do_recording(audio_file_name)
+            
+        # add formatted data to language model files
+        
+        #transcription file
+            nice_text = i[0][1].lower().translate(string.maketrans('', ''), ',.')
+            formatted_txt = "<s> " +  nice_text +  " </s> (" + training_data_name + "_" + str(i[0][0]) + ")\n"
+            formatted_filename = "./" + training_data_name + "/" +training_data_name + '.transcription'             
+            append_to_text_file(formatted_txt,formatted_filename)
+        #fileid
+            formatted_txt = training_data_name + "_" + str(i[0][0]) + "\n"
+            formatted_filename = "./" + training_data_name + "/" +training_data_name + '.fileids'
+            append_to_text_file(formatted_txt,formatted_filename)
+                       
     except KeyboardInterrupt:
         sys.exit()
         
