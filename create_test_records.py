@@ -12,11 +12,17 @@ import pyaudio
 import wave
 import sys
 import string
+import os
+import errno
+import re
+import urllib2  # the lib that handles the url stuff
+import glob
 
+# these settings are crucial to making sure PocketSphinx works properly.
 chunk = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 16000
+RATE = 16000 
 
 def dinput(prompt,default_input):
     # unsophisticated function that lets you have a default input.
@@ -25,7 +31,7 @@ def dinput(prompt,default_input):
     i = str(r_in) or default_input
     return i
 
-# create interrupt thread
+# create interrupt thread.  This lets me record for an unspecified amount of time.
 def input_thread(L):
     raw_input()
     L.append(None)
@@ -65,47 +71,27 @@ def do_recording(WAVE_OUTPUT_FILENAME):
     wf.close()
 
 # it's nice to clear the screen easily.
-import sys
 def clear_screen():
     sys.stderr.write("\x1b[2J\x1b[H")
 
-clear_screen()
-# check the user knows what they're doing
-def check_user_is_not_idiot():
-    check = raw_input("Are you running this script within the directory you want to use for PocketSphinx? (yes/no) ")
-    if check=='yes':
-        pass
-        
-    elif check=='no':
-        raw_input("Move this script to your working directory and then rerun it. Press [enter] to exit.")
-        sys.exit()
-        
-    else:
-        print("type 'yes' or 'no' then press enter.")
-        
-check_user_is_not_idiot()
-# look for 'bespoke_training_data' folder, if missing create
 
-import os
-import errno
 def get_name_of_training_data():
     wrong = True
     while wrong:
-        training_data_name = dinput("What do you want to call this dataset? ", "neo-en")
+        training_data_name = dinput("What do you want to call this training data? ", "test-data")
         if ' ' in training_data_name:
             wrong = True
         else:
             wrong = False
     return training_data_name
 
-training_data_name = get_name_of_training_data()
 
 def make_sure_path_exists(path):
     print("Looking for "+ training_data_name + " folder...")
     nf = []
     try:
         os.makedirs(path)
-        print("Creating new folder for training data...")
+        print("Creating new folder for test data...")
         nf = True # did I create a new folder?
     except OSError as exception:
         if exception.errno != errno.EEXIST:
@@ -113,14 +99,10 @@ def make_sure_path_exists(path):
     
     return nf
 
-nf = make_sure_path_exists("./" + training_data_name)
 
 # if exists, see how far the recording process went
 
 def how_much_training_data_exists_already(nf):
-
-    import glob
-    import re
     
     path = "./" + training_data_name
     
@@ -132,15 +114,21 @@ def how_much_training_data_exists_already(nf):
     
     for i in file_list:
         # print i # this would print the names of all .wav files (unneccessary)
-        numbers_list.append(re.findall(".*"+training_data_name+"_(\d{4})\.wav", i))
-    try:    
+        numbers_list.append(re.findall(".*" + training_data_name + "(\d+)\.wav", i))
+    #print numbers_list
+    try:
+        #print max(numbers_list)
         number = int(max(numbers_list)[0])
     except ValueError:
         number = 0
+    except IndexError:
+        number = -1
     
     if number:
         if number == 0:
             print("Found 0 recordings.")
+        elif number == -1:
+            print("Found other files in directory.")
         elif number == 1:
             print("Found 1 recording.")
         else:
@@ -149,15 +137,6 @@ def how_much_training_data_exists_already(nf):
     return number
     
 
-
-# ask: (you have x records) record more data or train on what you have?
-
-# if RECORD: (we'll assume this for now)
-
-# get file and get lines from file
-
-import re
-import urllib2  # the lib that handles the url stuff
 def get_cmu_arctic_training_data_file():
 
     target_url = 'http://festvox.org/cmu_arctic/cmuarctic.data'
@@ -168,7 +147,9 @@ def get_cmu_arctic_training_data_file():
     
     for line in data: 
         try:
-            matches = re.findall('\(\sarctic_.(?P<number>\d\d\d\d)\s\"(?P<text>.+)"\s\)', line, re.DOTALL)
+            # using the b-set of arctic data for testing purposes. Change this if I want to create 
+            # more training data.
+            matches = re.findall('\(\sarctic_b(?P<number>\d\d\d\d)\s\"(?P<text>.+)"\s\)', line, re.DOTALL)
             if matches:
                 datalist.append(matches)
         except AttributeError:
@@ -208,41 +189,58 @@ def append_to_text_file(formatted_text, filename):
 # display line, record until interrupt
 def record_new_cmu_training_data(quant, num_recs, datalist):
     #clear_screen()
-    print("\nRemember: read carefully.  There is no function in this script for redoing a file (TODO).  Press [enter] to start when you are in a quiet area.  If you are not ready, or to leave at any time during recording, press [ctrl-c] to exit the script.  The script will pick up where it left off.\n")
+    print("\nRemember: read carefully.  Press [enter] to start when you are in a quiet area.  If you are not ready, or to leave at any time during recording, press [ctrl-c] to exit the script.  The script will pick up where it left off.\n")
     ready = raw_input()
     
     try:
         for i in datalist[quant:num_recs]: # iterate through data, starting after the last recording detected.
         
         # record audio
+            if i==quant:
+                delete = raw_input("Do you want to delete the last recording? (yes/no) ")
+                if delete == 'yes':
+                    print("Run delete_last_record.py from the command line.")
+                    break
+
             clear_screen()
             print("Recording no. %s of %04d\n" % (i[0][0], num_recs))
             print("Read the following text out loud after pressing [enter]:")
             print("--------------------------------------------------------------------------------\n")
             print(i[0][1] + "\n")
             print("--------------------------------------------------------------------------------\n")
-                
-            # recording file should look like this (e.g.): ./bespoke_training_data/arctic_0001.wav
-            audio_file_name = "./" + training_data_name + "/" + training_data_name+ "_" + str(i[0][0]) + ".wav"
+            
+
+            
+            # recording file should look like this (e.g.): ./bespoke_training_data/arctic1.wav
+            audio_file_name = "./" + training_data_name + "/" + training_data_name + str(int(i[0][0])) + ".wav"
                               
             do_recording(audio_file_name)
             
         # add formatted data to language model files
         
         #transcription file
-            nice_text = i[0][1].lower().translate(string.maketrans('', ''), ',.')
-            formatted_txt = "<s> " +  nice_text +  " </s> (" + training_data_name + "_" + str(i[0][0]) + ")\n"
+            nice_text = i[0][1].lower().translate(string.maketrans('', ''), ',.') 
+            # format: some text (test1)
+            formatted_txt = nice_text +  " (" + training_data_name + str(int(i[0][0])) + ")\n"
+            # formatted_txt = "<s> " +  nice_text +  " </s> (" + training_data_name + "_" + str(i[0][0]) + ")\n"
             formatted_filename = "./" + training_data_name + "/" +training_data_name + '.transcription'             
             append_to_text_file(formatted_txt,formatted_filename)
         #fileid
-            formatted_txt = training_data_name + "_" + str(i[0][0]) + "\n"
+            formatted_txt = training_data_name + str(int(i[0][0])) + "\n"
+            # formatted_txt = training_data_name + "_" + str(i[0][0]) + "\n"
             formatted_filename = "./" + training_data_name + "/" +training_data_name + '.fileids'
             append_to_text_file(formatted_txt,formatted_filename)
                        
     except KeyboardInterrupt:
         sys.exit()
         
-# function
+# functions
+
+clear_screen()
+
+training_data_name = get_name_of_training_data()
+
+nf = make_sure_path_exists("./" + training_data_name)
 
 datalist = get_cmu_arctic_training_data_file()
 
