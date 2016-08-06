@@ -4,9 +4,6 @@
 
 # INITIALIZE
 
-print("--------------------------------------------------------------------------------")
-
-
 import thread, time
 import pyaudio
 import wave
@@ -70,21 +67,7 @@ def clear_screen():
     sys.stderr.write("\x1b[2J\x1b[H")
 
 clear_screen()
-# check the user knows what they're doing
-def check_user_is_not_idiot():
-    check = raw_input("Are you running this script within the directory you want to use for PocketSphinx? (yes/no) ")
-    if check=='yes':
-        pass
-        
-    elif check=='no':
-        raw_input("Move this script to your working directory and then rerun it. Press [enter] to exit.")
-        sys.exit()
-        
-    else:
-        print("type 'yes' or 'no' then press enter.")
-        
-check_user_is_not_idiot()
-# look for 'bespoke_training_data' folder, if missing create
+
 
 import os
 import errno

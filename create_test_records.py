@@ -107,7 +107,7 @@ def how_much_training_data_exists_already(nf):
     path = "./" + training_data_name
     
     if not nf: # don't need to look stupid
-        print("Checking for previous recordings...")
+        print("Checking for previous recordings..." + ' [' + path + ']')
     
     file_list = glob.glob(path+'/*.wav')
     numbers_list = []
