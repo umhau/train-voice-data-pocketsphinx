@@ -1,6 +1,6 @@
 # train-voice-data-pocketsphinx
 
-last modified 8.3.2016 by umhau
+Goal of repo: a) create voice model based on CMU ARCTIC data, and b) create a model based on an arbitrary set of vocabulary words, possibly arranged into sentences.  
 
 A script to automate training voice data for PocketSphinx.  The only file you need is train_voice_model.py.  Put this in the directory where you want your training data folder to be located.  It will look for a folder called 'bespoke_training_data' and create it if necessary.  Then you just have to sit there and read the text it feeds you on the screen. There's 500+ sentences to read, but you only really need about 20.  I'd go for more.  
 
